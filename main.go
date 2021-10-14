@@ -3,9 +3,26 @@ package main
 /*
 #include <stdlib.h>
 #cgo CFLAGS: -I .
-#cgo LDFLAGS: -L . -lnacdef
-#include "nacdef.h"
+#cgo LDFLAGS: -L .
+
+typedef void (*ConfigUpdateEvent)(char *group, char *dataId, char *data);
+
+typedef struct {
+  char *name;
+  ConfigUpdateEvent event;
+} MatchVarEventHandler;
+
+typedef struct {
+  int count;
+  MatchVarEventHandler* handlers;
+} MatchVarEventHandlerCollection;
+
+extern void nacdef_doUpdateEvent(ConfigUpdateEvent evt, char *group, char *dataId, char *data){
+	evt(group,dataId,data);
+}
+
 */
+//#cgo LDFLAGS: -Wl,--allow-multiple-definition
 import "C"
 import (
 	"fmt"
@@ -54,6 +71,7 @@ func convertMatchVarHandlers(cMatchVarHandlers *C.MatchVarEventHandlerCollection
 		evtHandler := (*C.MatchVarEventHandler)(unsafe.Pointer(uintptr(unsafe.Pointer(handlersPrt)) + skipLen))
 
 		name := C.GoString(evtHandler.name)
+		fmt.Printf("event name:%s\n", name)
 		h := initMatchHandlerFromC(evtHandler)
 		results = append(results, naconfig.InitMatchVarHandler(name, h))
 	}
@@ -62,6 +80,7 @@ func convertMatchVarHandlers(cMatchVarHandlers *C.MatchVarEventHandlerCollection
 
 func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group, dataId, data string) {
 	h := func(group, dataId, data string) {
+		fmt.Printf("update get group:%s dataId:%s data:%s\n", group, dataId, data)
 		var cgroup *C.char = C.CString(group)
 		defer C.free(unsafe.Pointer(cgroup))
 		var cdataId *C.char = C.CString(dataId)
@@ -93,6 +112,7 @@ func nacgosPublish(storagePointer unsafe.Pointer, group *C.char, dataID *C.char,
 	groupStr := C.GoString(group)
 	dataIDStr := C.GoString(dataID)
 	contentStr := C.GoString(content)
+	fmt.Printf("publish group:%s dataId:%s data:%s\n", group, dataID, content)
 	err := storage.Publish(groupStr, dataIDStr, contentStr)
 	if err != nil {
 		fmt.Printf("nacos storage publish return error:%s", err.Error())

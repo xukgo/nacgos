@@ -39,7 +39,9 @@ func main() {
 
 //export nacgosInitStorage
 func nacgosInitStorage(filePath *C.char, matchVarHandlers *C.MatchVarEventHandlerCollection, retCode *C.int) unsafe.Pointer {
-	var matchHandlers []naconfig.MatchVarHandler = convertMatchVarHandlers(matchVarHandlers)
+	//fmt.Printf("matchVarHandlers:%v\n", matchVarHandlers)
+	var matchHandlers = convertMatchVarHandlers(matchVarHandlers)
+	//fmt.Printf("matchHandlers:\n\t%v\n", len(matchHandlers))
 	gpath := C.GoString(filePath)
 	fp := fileUtil.GetAbsUrl(gpath)
 
@@ -71,16 +73,16 @@ func convertMatchVarHandlers(cMatchVarHandlers *C.MatchVarEventHandlerCollection
 		evtHandler := (*C.MatchVarEventHandler)(unsafe.Pointer(uintptr(unsafe.Pointer(handlersPrt)) + skipLen))
 
 		name := C.GoString(evtHandler.name)
-		fmt.Printf("event name:%s\n", name)
 		h := initMatchHandlerFromC(evtHandler)
+		fmt.Printf("event name:%s ptr:%p\n", name, h)
 		results = append(results, naconfig.InitMatchVarHandler(name, h))
 	}
-	return nil
+	return results
 }
 
 func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group, dataId, data string) {
 	h := func(group, dataId, data string) {
-		fmt.Printf("update get group:%s dataId:%s data:%s\n", group, dataId, data)
+		//fmt.Printf("update get group:%s dataId:%s data:%s\n", group, dataId, data)
 		var cgroup *C.char = C.CString(group)
 		defer C.free(unsafe.Pointer(cgroup))
 		var cdataId *C.char = C.CString(dataId)
@@ -96,6 +98,7 @@ func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group, dataI
 func nacgosStartSubscribe(storagePointer unsafe.Pointer, block C.int) C.int {
 	storage := gopointer.Restore(storagePointer).(*naconfig.Repo)
 	isBlock := block == 1
+	//fmt.Printf("block:%v\n", isBlock)
 
 	err := storage.Subscribe(isBlock)
 	if err != nil {
@@ -112,7 +115,7 @@ func nacgosPublish(storagePointer unsafe.Pointer, group *C.char, dataID *C.char,
 	groupStr := C.GoString(group)
 	dataIDStr := C.GoString(dataID)
 	contentStr := C.GoString(content)
-	fmt.Printf("publish group:%s dataId:%s data:%s\n", group, dataID, content)
+	//fmt.Printf("publish group:%s dataId:%s data:%s\n", groupStr, dataIDStr, contentStr)
 	err := storage.Publish(groupStr, dataIDStr, contentStr)
 	if err != nil {
 		fmt.Printf("nacos storage publish return error:%s", err.Error())
@@ -123,5 +126,6 @@ func nacgosPublish(storagePointer unsafe.Pointer, group *C.char, dataID *C.char,
 
 //export nacgosFreeStorage
 func nacgosFreeStorage(storagePointer unsafe.Pointer) {
+	//storage := gopointer.Restore(storagePointer).(*naconfig.Repo)
 	gopointer.Unref(storagePointer)
 }

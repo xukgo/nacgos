@@ -5,9 +5,10 @@ package main
 #cgo CFLAGS: -I .
 #cgo LDFLAGS: -L .
 
-typedef void (*ConfigUpdateEvent)(char *group, char *dataId, char *data);
+typedef void (*ConfigUpdateEvent)(void *usrData, char *group, char *dataId, char *data);
 
 typedef struct {
+  void *usrData;
   char *name;
   ConfigUpdateEvent event;
 } MatchVarEventHandler;
@@ -17,8 +18,8 @@ typedef struct {
   MatchVarEventHandler* handlers;
 } MatchVarEventHandlerCollection;
 
-extern void nacdef_doUpdateEvent(ConfigUpdateEvent evt, char *group, char *dataId, char *data){
-	evt(group,dataId,data);
+extern void nacdef_doUpdateEvent(ConfigUpdateEvent evt, void *usrData, char *group, char *dataId, char *data){
+	evt(usrData, group,dataId,data);
 }
 
 */
@@ -80,7 +81,8 @@ func convertMatchVarHandlers(cMatchVarHandlers *C.MatchVarEventHandlerCollection
 	return results
 }
 
-func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group, dataId, data string) {
+func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group string, dataId string, data string) {
+	usrData := unsafe.Pointer(evtHandler.usrData)
 	h := func(group, dataId, data string) {
 		//fmt.Printf("update get group:%s dataId:%s data:%s\n", group, dataId, data)
 		var cgroup *C.char = C.CString(group)
@@ -89,7 +91,7 @@ func initMatchHandlerFromC(evtHandler *C.MatchVarEventHandler) func(group, dataI
 		defer C.free(unsafe.Pointer(cdataId))
 		var cdata *C.char = C.CString(data)
 		defer C.free(unsafe.Pointer(cdata))
-		C.nacdef_doUpdateEvent(evtHandler.event, cgroup, cdataId, cdata)
+		C.nacdef_doUpdateEvent(evtHandler.event, usrData, cgroup, cdataId, cdata)
 	}
 	return h
 }
